@@ -14,7 +14,7 @@
  * @param $post object, attachment record in database
  * @return $form_fields, modified form fields
  */
- function hrld_attachment_field_credit( $form_fields, $post ) {
+function hrld_attachment_field_credit( $form_fields, $post ) {
 	 $value = get_post_meta( $post->ID, '_hrld_media_credit', true );
 	 $form_fields['hrld_media_credit']['label'] = 'Media Credit';
 	 $form_fields['hrld_media_credit']['input'] = 'html';
@@ -42,6 +42,21 @@ function hrld_attachment_field_credit_save( $post, $attachment ) {
 }
 
 add_filter( 'attachment_fields_to_save', 'hrld_attachment_field_credit_save', 10, 2 );
+
+/**
+ * Save values of Author Name and URL in media uploader modal via AJAX
+ */
+function admin_attachment_field_media_author_credit_ajax_save() {
+
+	check_ajax_referer( 'hrld_media_nonce', 'hrld_my_nonce' );
+
+    if( isset( $_POST['hrld_credit'] ) )
+    	echo $_POST['hrld_credit'];
+        update_post_meta( $_POST['hrld_id'], '_hrld_media_credit', $_POST['hrld_credit'] );
+	die();
+
+} add_action('wp_ajax_hrld_save_credit_ajax', 'admin_attachment_field_media_author_credit_ajax_save', 0, 1); 
+
 
 /**
  * Includes images to author query if they have credit to them.
@@ -77,13 +92,13 @@ add_filter('the_posts', 'hrld_media_author_query', 1);
  
 function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $url, $size){
 		$html = get_image_tag($id, '', $title, $align, $size);
-		$hrld_credit = get_post_custom($id);
-		if(isset($hrld_credit['_hrld_media_credit'][0]) && !empty($hrld_credit['_hrld_media_credit'][0])){
-			if(get_user_by('login', $hrld_credit['_hrld_media_credit'][0])){
-				$hrld_user = get_user_by('login', $hrld_credit['_hrld_media_credit'][0]);
+		$hrld_credit = get_hrld_media_credit($id);
+		if(isset($hrld_credit) && !empty($hrld_credit)){
+			if(get_user_by('login', $hrld_credit)){
+				$hrld_user = get_user_by('login', $hrld_credit);
 				$html_text = '<span class="hrld-media-credit">Photo by '.$hrld_user->display_name.'.</span>';
 			} else{
-				$html_text = '<span class="hrld-media-credit">'.$hrld_credit['_hrld_media_credit'][0].'.</span>';
+				$html_text = '<span class="hrld-media-credit">'.$hrld_credit.'.</span>';
 			}
 			if($caption){
 				$html = get_image_tag($id, '', $title, $align, $size);
@@ -101,11 +116,23 @@ function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $ur
 add_filter( 'image_send_to_editor', 'hrld_media_credit_send_editor', 10, 7 );
 
 /**
+ * Returns the hrld-media-credit custom meta field data
+ */
+function get_hrld_media_credit($id){
+	$hrld_credit = get_post_custom($id);
+	return $hrld_credit['_hrld_media_credit'][0];
+}
+
+/**
  * Adds script to footer with wp_footer hook
  */
 function hrld_auto_complete_js(){
+	$hrld_ajax_data = array(
+		'my_nonce' => wp_create_nonce('hrld_media_nonce')
+	);
 	wp_enqueue_script('jquery-ui-autocomplete');
 	wp_enqueue_script('hrld_media_credit_js', plugins_url().'/hrld-media-credit/hrld_media_credit_js.js', array('jquery','jquery-ui-autocomplete'));
+	wp_localize_script('hrld_media_credit_js','hrld_media_data', $hrld_ajax_data);
 	echo '<script type="text/javascript">var hrld_user_tags = [';
 	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login'));
 	foreach($hrld_users as $hrld_user){
