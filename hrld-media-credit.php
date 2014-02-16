@@ -96,12 +96,14 @@ function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $ur
 		if(isset($hrld_credit) && !empty($hrld_credit)){
 			if(get_user_by('login', $hrld_credit)){
 				$hrld_user = get_user_by('login', $hrld_credit);
-				$html_text = '<span class="hrld-media-credit">Photo by '.$hrld_user->display_name.'.</span>';
+				$html_text = '<span class="hrld-media-credit">Photo by <a><a href="'.get_bloginfo('url').'/author/'.$hrld_credit.'">'.$hrld_user->display_name.'</a></a>.</span>'; 
 			} else{
 				$html_text = '<span class="hrld-media-credit">'.$hrld_credit.'.</span>';
 			}
 			if($caption){
 				$html = get_image_tag($id, '', $title, $align, $size);
+				$html .= $caption;
+				$html .= '<br />';
 				$html .= $html_text;
 			} else{
 				$attach_attributes = wp_get_attachment_image_src($id, $isze);
@@ -116,8 +118,84 @@ function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $ur
 add_filter( 'image_send_to_editor', 'hrld_media_credit_send_editor', 10, 7 );
 
 /**
- * Returns the hrld-media-credit custom meta field data
+ * Removes Default image_add_caption filter and adds slightly
+ * editied version for hrld_add_caption. 
+ * Adds image shortcode with caption to editor
+ *
+ * @since 2.6.0
+ *
+ * @param string $html
+ * @param integer $id
+ * @param string $caption image caption
+ * @param string $alt image alt attribute
+ * @param string $title image title attribute
+ * @param string $align image css alignment property
+ * @param string $url image src url
+ * @param string $size image size (thumbnail, medium, large, full or added with add_image_size() )
+ * @return string
  */
+function hrld_remove_filters(){
+	remove_filter('image_send_to_editor', 'image_add_caption', 20, 8);
+}
+add_action('admin_init', 'hrld_remove_filters');
+function hrld_add_caption( $html, $id, $caption, $title, $align, $url, $size, $alt = '' ) {
+
+	/**
+	 * Filter whether to disable captions.
+	 *
+	 * Prevents image captions from being appended to image HTML when inserted into the editor.
+	 *
+	 * @since 2.6.0
+	 *
+	 * @param bool $bool Whether to disable appending captions. Returning true to the filter
+	 *                   will disable captions. Default empty string.
+	 */
+	if ( empty($caption) || apply_filters( 'disable_captions', '' ) )
+		return $html;
+
+	$hrld_credit = get_hrld_media_credit($id);
+
+	$id = ( 0 < (int) $id ) ? 'attachment_' . $id : '';
+
+	if ( ! preg_match( '/width=["\']([0-9]+)/', $html, $matches ) )
+		return $html;
+
+	$width = $matches[1];
+
+	$caption = str_replace( array("\r\n", "\r"), "\n", $caption);
+	$caption = preg_replace_callback( '/<[a-zA-Z0-9]+(?: [^<>]+>)*/', 'hrld_cleanup_image_add_caption', $caption );
+	// convert any remaining line breaks to <br>
+	$caption = preg_replace( '/[ \n\t]*\n[ \t]*/', '<br />', $caption );
+
+	$html = preg_replace( '/(class=["\'][^\'"]*)align(none|left|right|center)\s?/', '$1', $html );
+	if ( empty($align) )
+		$align = 'none';
+
+
+	
+
+	if(isset($hrld_credit) && !empty($hrld_credit)){
+		$shcode = '[caption id="' . $id . '" align="align' . $align	. '" width="' . $width . '"]' . $html . '[/caption]';
+	} else{
+		$shcode = '[caption id="' . $id . '" align="align' . $align	. '" width="' . $width . '"]' . $html . ' ' . $caption . '[/caption]';
+	}
+	/**
+	 * Filter the image HTML markup including the caption shortcode.
+	 *
+	 * @since 2.6.0
+	 *
+	 * @param string $shcode The image HTML markup with caption shortcode.
+	 * @param string $html   The image HTML markup.
+	 */
+	return apply_filters( 'image_add_caption_shortcode', $shcode, $html );
+}
+add_filter('image_send_to_editor', 'hrld_add_caption', 20, 8);
+
+function hrld_cleanup_image_add_caption( $matches ) {
+	// remove any line breaks from inside the tags
+	return preg_replace( '/[\r\n\t]+/', ' ', $matches[0] );
+}
+
 function get_hrld_media_credit($id){
 	$hrld_credit = get_post_custom($id);
 	return $hrld_credit['_hrld_media_credit'][0];
