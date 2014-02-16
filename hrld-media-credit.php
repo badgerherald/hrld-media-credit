@@ -200,7 +200,10 @@ function get_hrld_media_credit($id){
 	$hrld_credit = get_post_custom($id);
 	return $hrld_credit['_hrld_media_credit'][0];
 }
-
+function get_hrld_media_credit_user($id){
+	$hrld_credit = get_post_custom($id);
+	return get_user_by('login', $hrld_credit['_hrld_media_credit'][0]);
+}
 /**
  * Adds script to footer with wp_footer hook
  */
