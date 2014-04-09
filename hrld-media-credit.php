@@ -96,9 +96,9 @@ function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $ur
 		if(isset($hrld_credit) && !empty($hrld_credit)){
 			if(get_user_by('login', $hrld_credit)){
 				$hrld_user = get_user_by('login', $hrld_credit);
-				$html_text = '<span class="hrld-media-credit">Photo by <a><a href="'.get_bloginfo('url').'/author/'.$hrld_credit.'">'.$hrld_user->display_name.'</a></a>.</span>'; 
+				$html_text = '<span class="hrld-media-credit"><a><a href="'.get_bloginfo('url').'/author/'.$hrld_credit.'">'.$hrld_user->display_name.'</a></a> / The Badger Herald</span>'; 
 			} else{
-				$html_text = '<span class="hrld-media-credit">'.$hrld_credit.'.</span>';
+				$html_text = '<span class="hrld-media-credit">'.$hrld_credit.'</span>';
 			}
 			if($caption){
 				$html = get_image_tag($id, '', $title, $align, $size);
@@ -215,13 +215,13 @@ function hrld_auto_complete_js(){
 	wp_enqueue_script('hrld_media_credit_js', plugins_url().'/hrld-media-credit/hrld_media_credit_js.js', array('jquery','jquery-ui-autocomplete'));
 	wp_localize_script('hrld_media_credit_js','hrld_media_data', $hrld_ajax_data);
 	echo '<script type="text/javascript">var hrld_user_tags = [';
-	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login'));
+	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login', 'who'=>'authors'));
 	foreach($hrld_users as $hrld_user){
 		if($hrld_user === end($hrld_users)){
-			echo '"'.$hrld_user->user_login.'"';
+			echo '{label:"'.$hrld_user->display_name.'",value:"'.$hrld_user->user_login.'"}';
 		}
 		else{
-			echo '"'.$hrld_user->user_login.'",';
+			echo '{label:"'.$hrld_user->display_name.'",value:"'.$hrld_user->user_login.'"},';
 		}
 	}
 	echo '];</script>';
@@ -229,5 +229,22 @@ function hrld_auto_complete_js(){
 } 
 add_action('admin_head', 'hrld_auto_complete_js', 20);
 
+function hrld_remove_old_media_credit($content){
+	$txt= $content;
 
+  $caption_pattern = '/(\\[caption.*?\\])(.*?)\\[\\/caption\\]/';
+  $media_pattern = '/\\[media-credit.*?(?:name|id)=["\'](.*?)["\'].*?\\](<[^>]+>)\\[\\/media-credit\\](.*?)/';
+  $media_caption_replace = '$2<span class="hrld-media-credit">$1</span>$3';
+  $media_no_caption_replace = '[caption]$2<span class="hrld-media-credit">$1</span>[/caption]';
+
+  if ($c=preg_match_all ($caption_pattern, $txt, $matches))
+  {
+  	print_r($matches);
+  	  $inside_caption = preg_replace($media_pattern, $media_caption_replace, $matches[1][1]);
+  	  $txt = preg_replace($caption_pattern, '$1'.$inside_caption.'[/caption]', $txt);
+  }
+  	$txt = preg_replace($media_pattern, $media_no_caption_replace, $txt);
+  return $txt;
+}
+add_filter('the_content', 'hrld_remove_old_media_credit',10;
 ?>
