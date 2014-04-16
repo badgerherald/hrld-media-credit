@@ -221,7 +221,12 @@ function hrld_auto_complete_js(){
 	wp_enqueue_script('hrld_media_credit_js', plugins_url().'/hrld-media-credit/hrld_media_credit_js.js', array('jquery','jquery-ui-autocomplete'));
 	wp_localize_script('hrld_media_credit_js','hrld_media_data', $hrld_ajax_data);
 	echo '<script type="text/javascript">var hrld_user_tags = [';
-	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login', 'who'=>'authors'));
+	$users_exclude = get_users(array('order'=>'ASC', 'orderby'=>'login', 'role'=>'subscriber'));
+	$exclude = array();
+	foreach($users_exclude as $user_exclude){
+		$exclude[] = $user_exclude->ID;
+	}
+	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login', 'exclude'=>$exclude));
 	foreach($hrld_users as $hrld_user){
 		if($hrld_user === end($hrld_users)){
 			echo '{label:"'.$hrld_user->display_name.'",value:"'.$hrld_user->user_login.'"}';
