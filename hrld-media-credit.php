@@ -19,7 +19,7 @@ function hrld_attachment_field_credit( $form_fields, $post ) {
 	 $form_fields['hrld_media_credit']['label'] = 'Media Credit';
 	 $form_fields['hrld_media_credit']['input'] = 'html';
 	 $form_fields['hrld_media_credit']['html'] = '<input type="text" class="text hrld_media_credit_input" id="attachments-'.$post->ID.'-hrld_media_credit" name="attachments['.$post->ID.'][hrld_media_credit]" value="'.$value.'">';
-	 $form_fields['hrld_media_credit']['helps'] = 'If photo was taken by a Herald photographer, use their username. e.g. "Bucky Badger" You should write "bbadger".';
+	 $form_fields['hrld_media_credit']['helps'] = 'If photo was taken by a Herald photographer, type their name and select from the dropdown. If the photo is from an outside source, type the credit in the format of <name>/<organization>. e.g. "Jeff Miller/UW Communications"';
 
 	return $form_fields;
 }
@@ -96,9 +96,15 @@ function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $ur
 		if(isset($hrld_credit) && !empty($hrld_credit)){
 			if(get_user_by('login', $hrld_credit)){
 				$hrld_user = get_user_by('login', $hrld_credit);
-				$html_text = '<span class="hrld-media-credit"><a><a href="'.get_bloginfo('url').'/author/'.$hrld_credit.'">'.$hrld_user->display_name.'</a></a> / The Badger Herald</span>'; 
+				$html_text = '<span class="hrld-media-credit"><span class="hrld-media-credit-name"><a><a href="'.get_bloginfo('url').'/author/'.$hrld_credit.'">'.$hrld_user->display_name.'</a></a></span><span class="hrld-media-credit-org">/The Badger Herald</span></span>'; 
 			} else{
-				$html_text = '<span class="hrld-media-credit">'.$hrld_credit.'</span>';
+				$hrld_credit_name_org = explode("/", $hrld_credit);
+				if($hrld_credit_name_org[1]){
+					$html_text = '<span class="hrld-media-credit"><span class="hrld-media-credit-name">'.$hrld_credit_name_org[0].'</span><span class="hrld-media-credit-org">/'.$hrld_credit_name_org[1].'</span></span>';
+				}
+				else{
+					$html_text = '<span class="hrld-media-credit"><span class="hrld-media-credit-org">'.$hrld_credit_name_org[0].'</span></span>';
+				}
 			}
 			if($caption){
 				$html = get_image_tag($id, '', $title, $align, $size);
@@ -232,19 +238,35 @@ add_action('admin_head', 'hrld_auto_complete_js', 20);
 function hrld_remove_old_media_credit($content){
 	$txt= $content;
 
-  $caption_pattern = '/(\\[caption.*?\\])(.*?)\\[\\/caption\\]/';
-  $media_pattern = '/\\[media-credit.*?(?:name|id)=["\'](.*?)["\'].*?\\](<[^>]+>)\\[\\/media-credit\\](.*?)/';
-  $media_caption_replace = '$2<span class="hrld-media-credit">$1</span>$3';
-  $media_no_caption_replace = '[caption]$2<span class="hrld-media-credit">$1</span>[/caption]';
+  $caption_pattern = '/(\\[caption.*?\\])(.*?)(\\[\\/caption\\])/';
 
   if ($c=preg_match_all ($caption_pattern, $txt, $matches))
   {
-  	print_r($matches);
-  	  $inside_caption = preg_replace($media_pattern, $media_caption_replace, $matches[1][1]);
-  	  $txt = preg_replace($caption_pattern, '$1'.$inside_caption.'[/caption]', $txt);
+  	$txt = preg_replace_callback($caption_pattern, function($cap_matches){
+  			$middle_replace = preg_replace_callback('/\[media-credit.*?(?:(name)|(id))=(?(1)["\'](.*?)["\']|(?(2)([0-9]+))).*?\](<[^>]+>)\[\/media-credit\](.+)/', function($middle_matches){
+  				if($middle_matches[1]){
+  					$credit_name = $middle_matches[3];
+  				}
+  				else{
+  					$credit_user = get_user_by('id', $middle_matches[4]);
+  					$credit_name = '<span class="hrld-media-credit-name">'.$credit_user->first_name.' '.$credit_user->last_name.'</span><span class="hrld-media-credit-org">/The Badger Herald</span>';
+  				}
+  				return $middle_matches[5].'<span class="hrld-media-credit">'.$credit_name.'</span>'.$middle_matches[6];
+  			}, $cap_matches[2]);
+  			return $cap_matches[1].$middle_replace.$cap_matches[3];
+  		}, $txt);
   }
-  	$txt = preg_replace($media_pattern, $media_no_caption_replace, $txt);
-  return $txt;
+  	$txt = preg_replace_callback('/\[media-credit.*?(?:(name)|(id))=(?(1)["\'](.*?)["\']|(?(2)([0-9]+))).*?\](<[^>]+>)\[\/media-credit\]/', function($middle_matches){
+		if($middle_matches[1]){
+			$credit_name = $middle_matches[3];
+		}
+		else{
+			$credit_user = get_user_by('id', $middle_matches[4]);
+			$credit_name = '<span class="hrld-media-credit-name">'.$credit_user->first_name.' '.$credit_user->last_name.'</span><span class="hrld-media-credit-org">/The Badger Herald</span>';
+		}
+		return '<div class="wp-caption">'.$middle_matches[5].'<p class="wp-caption-text"><span class="hrld-media-credit">'.$credit_name.'</span></p></div>';
+	}, $txt);
+  return do_shortcode($txt);
 }
-add_filter('the_content', 'hrld_remove_old_media_credit',10;
+add_filter('the_content', 'hrld_remove_old_media_credit',10);
 ?>
