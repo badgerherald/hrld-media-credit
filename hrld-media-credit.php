@@ -19,7 +19,7 @@ function hrld_attachment_field_credit( $form_fields, $post ) {
 	 $form_fields['hrld_media_credit']['label'] = 'Media Credit';
 	 $form_fields['hrld_media_credit']['input'] = 'html';
 	 $form_fields['hrld_media_credit']['html'] = '<input type="text" class="text hrld_media_credit_input" id="attachments-'.$post->ID.'-hrld_media_credit" name="attachments['.$post->ID.'][hrld_media_credit]" value="'.$value.'">';
-	 $form_fields['hrld_media_credit']['helps'] = 'If photo was taken by a Herald photographer, type their name and select from the dropdown. If the photo is from an outside source, type the credit in the format of <name>/<organization>. e.g. "Jeff Miller/UW Communications"';
+	 $form_fields['hrld_media_credit']['helps'] = 'If photo was taken by a Herald photographer, type their name and select from the dropdown. If the photo is from an outside source, type the credit in the format of name/organization. e.g. "Jeff Miller/UW Communications"';
 
 	return $form_fields;
 }
