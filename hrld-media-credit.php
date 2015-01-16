@@ -69,6 +69,9 @@ function admin_attachment_field_media_author_credit_ajax_save() {
  * @param $query object, passed by reference
  */
 
+/*
+ * NOT IN USE CURRENTLY
+ 
 function hrld_media_author_query($posts){
 	global $wp_query;
 	if(!is_admin() && is_author()){
@@ -89,6 +92,8 @@ function hrld_media_author_query($posts){
 	}
 }
 add_filter('the_posts', 'hrld_media_author_query', 1);
+*/
+
 
 /**
  * Adds the credit byline to images added into post through "Add Media" button.
