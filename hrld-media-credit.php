@@ -64,6 +64,7 @@ function admin_attachment_field_media_author_credit_ajax_save() {
  * @param $query object, passed by reference
  */
 
+/*
 function hrld_media_author_query($posts){
 	global $wp_query;
 	if(!is_admin() && is_author()){
@@ -84,6 +85,23 @@ function hrld_media_author_query($posts){
 	}
 }
 add_filter('the_posts', 'hrld_media_author_query', 1);
+*/
+
+
+function hrld_media_author_query_join( $join){
+	$join .= ' INNER JOIN wp_postmeta ON wp_posts.ID = wp_postmeta.post_id';
+	return $join;
+}
+
+function hrld_media_author_query_where( $where){
+	global $wp_query;
+
+	$query_author = $wp_query->query['author_name'];
+	$where .= " OR (wp_postmeta.meta_key = '_hrld_media_credit' AND wp_postmeta.meta_value = '$query_author')";
+	return $where;
+}
+add_filter('posts_join', 'hrld_media_author_query_join');
+add_filter( 'posts_where' , 'hrld_media_author_query_where' );
 
 /**
  * Adds the credit byline to images added into post through "Add Media" button.
