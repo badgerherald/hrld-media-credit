@@ -62,39 +62,6 @@ function admin_attachment_field_media_author_credit_ajax_save() {
 
 } add_action('wp_ajax_hrld_save_credit_ajax', 'admin_attachment_field_media_author_credit_ajax_save', 0, 1); 
 
-
-/**
- * Includes images to author query if they have credit to them.
- *
- * @param $query object, passed by reference
- */
-
-/*
- * NOT IN USE CURRENTLY
- 
-function hrld_media_author_query($posts){
-	global $wp_query;
-	if(!is_admin() && is_author()){
-		$query_author = $wp_query->query['author_name'];
-		$media_args = array(
-			'post_type' => 'attachment',
-			'post_status' => 'inherit',
-			'meta_key' => '_hrld_media_credit',
-			'meta_value' => $query_author
-		);
-		$media_posts = get_posts($media_args);
-		$all_posts = array_merge($media_posts, $posts);
-		usort( $all_posts, create_function('$a,$b', 'return strcmp($b->post_date, $a->post_date);') );
-		return $all_posts;
-	}
-	else{
-		return $posts;
-	}
-}
-add_filter('the_posts', 'hrld_media_author_query', 1);
-*/
-
-
 /**
  * Adds the credit byline to images added into post through "Add Media" button.
  *
@@ -284,4 +251,55 @@ function hrld_remove_old_media_credit($content){
   return do_shortcode($txt);
 }
 add_filter('the_content', 'hrld_remove_old_media_credit',10);
+
+/**
+ * Returns the count of attachments credited to the given user
+ * @param  string $name User login to search
+ * @return int 		    Count of attachments
+ */
+function hrld_media_credit_count($name) {
+	$args = array(
+        'post_type' => 'attachment',
+        'post_status' => 'inherit',
+        'meta_key' => '_hrld_media_credit',
+        'meta_value' => $name
+    );
+    $query = new WP_Query( $args );
+    return $query->found_posts;
+}
+
+function hrld_media_credit_query() {
+	$user_nicename = $_POST['user_nicename'];
+	$posts_per = $_POST['posts_per'];
+	$offset = $_POST['offset'];
+	$args = array(
+        'post_type' => 'attachment',
+        'post_status' => 'inherit',
+        'meta_key' => '_hrld_media_credit',
+        'meta_value' => $user_nicename,
+        'posts_per_page' => $posts_per,
+        'offset' => $offset
+    );
+
+    $attachments = get_posts($args);
+    $response = array();
+    if ($attachments) {
+    	$index = 0;
+    	foreach ($attachments as $attachment) {
+    		$response[$index] = array(
+    			'ID' => $attachment->ID,
+    			'tag' => wp_get_attachment_image($attachment->ID, array(300,300))
+    		);
+    		$index++;
+    	}
+    }
+
+    $response = json_encode($response);
+
+    header("Content-Type: application/json");
+    echo $response;
+    wp_die();
+}
+add_action('wp_ajax_hrld_media_credit_query', 'hrld_media_credit_query');
+add_action('wp_ajax_nopriv_hrld_media_credit_query', 'hrld_media_credit_query');
 ?>
