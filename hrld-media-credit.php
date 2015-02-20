@@ -252,23 +252,7 @@ function hrld_remove_old_media_credit($content){
 }
 add_filter('the_content', 'hrld_remove_old_media_credit',10);
 
-/**
- * Returns the count of attachments credited to the given user
- * @param  string $name User login to search
- * @return int 		    Count of attachments
- */
-function hrld_media_credit_count($name) {
-	$args = array(
-        'post_type' => 'attachment',
-        'post_status' => 'inherit',
-        'meta_key' => '_hrld_media_credit',
-        'meta_value' => $name
-    );
-    $query = new WP_Query( $args );
-    return $query->found_posts;
-}
-
-function hrld_media_credit_query() {
+function hrld_media_credit_query_ajax() {
 	$user_nicename = $_POST['user_nicename'];
 	$posts_per = $_POST['posts_per'];
 	$offset = $_POST['offset'];
@@ -288,7 +272,7 @@ function hrld_media_credit_query() {
     	foreach ($attachments as $attachment) {
     		$response[$index] = array(
     			'ID' => $attachment->ID,
-    			'tag' => wp_get_attachment_image($attachment->ID, array(300,300))
+    			'tag' => wp_get_attachment_image($attachment->ID, 'square')
     		);
     		$index++;
     	}
@@ -300,6 +284,8 @@ function hrld_media_credit_query() {
     echo $response;
     wp_die();
 }
-add_action('wp_ajax_hrld_media_credit_query', 'hrld_media_credit_query');
-add_action('wp_ajax_nopriv_hrld_media_credit_query', 'hrld_media_credit_query');
+add_action('wp_ajax_hrld_media_credit_query', 'hrld_media_credit_query_ajax');
+add_action('wp_ajax_nopriv_hrld_media_credit_query', 'hrld_media_credit_query_ajax');
+
+include "hrld-media-query.php";
 ?>
