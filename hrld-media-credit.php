@@ -272,7 +272,7 @@ function hrld_media_credit_query_ajax() {
     	foreach ($attachments as $attachment) {
     		$response[$index] = array(
     			'ID' => $attachment->ID,
-    			'tag' => wp_get_attachment_image($attachment->ID, 'square')
+    			'tag' => wp_get_attachment_image($attachment->ID, 'square',false, array('class'=>'wp-image-'.$attachment->ID))
     		);
     		$index++;
     	}
