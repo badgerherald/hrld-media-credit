@@ -18,7 +18,7 @@ function hrld_attachment_field_credit( $form_fields, $post ) {
 	 $value = get_post_meta( $post->ID, '_hrld_media_credit', true );
 	 $form_fields['hrld_media_credit']['label'] = 'Media Credit';
 	 $form_fields['hrld_media_credit']['input'] = 'html';
-	 if (current_user_can('edit_post', $post->ID)) {
+	 if ( current_user_can('edit_post', $post->ID)) {
 	 	$form_fields['hrld_media_credit']['html'] = '<input type="text" class="text hrld_media_credit_input" id="attachments-'.$post->ID.'-hrld_media_credit" name="attachments['.$post->ID.'][hrld_media_credit]" value="'.$value.'">';
 	 } else {
 	 	$form_fields['hrld_media_credit']['html'] = '<input type="text" class="text hrld_media_credit_input" id="attachments-'.$post->ID.'-hrld_media_credit" name="attachments['.$post->ID.'][hrld_media_credit]" value="'.$value.'" disabled>';
@@ -40,7 +40,7 @@ add_filter( 'attachment_fields_to_edit', 'hrld_attachment_field_credit', 10, 2 )
  */
 
 function hrld_attachment_field_credit_save( $post, $attachment ) {
-	if( isset( $attachment['hrld_media_credit'] ) )
+	if( isset( $attachment['hrld_media_credit'] ) && current_user_can('edit_post', $post['ID']))
 		update_post_meta( $post['ID'], '_hrld_media_credit', $attachment['hrld_media_credit'] );
 
 	return $post;
@@ -55,10 +55,12 @@ function admin_attachment_field_media_author_credit_ajax_save() {
 
 	check_ajax_referer( 'hrld_media_nonce', 'hrld_my_nonce' );
 
-    if( isset( $_POST['hrld_credit'] ) )
-    	echo $_POST['hrld_credit'];
+    if( isset( $_POST['hrld_credit'] ) && current_user_can('edit_post', $post->ID)){
+    	//echo $_POST['hrld_credit'];
         update_post_meta( $_POST['hrld_id'], '_hrld_media_credit', $_POST['hrld_credit'] );
-	die();
+        //die();
+    }
+    die();
 
 } add_action('wp_ajax_hrld_save_credit_ajax', 'admin_attachment_field_media_author_credit_ajax_save', 0, 1); 
 
@@ -181,7 +183,10 @@ function hrld_cleanup_image_add_caption( $matches ) {
 
 function get_hrld_media_credit($id){
 	$hrld_credit = get_post_custom($id);
-	return $hrld_credit['_hrld_media_credit'][0];
+	if( isset($hrld_credit['_hrld_media_credit']))
+		return $hrld_credit['_hrld_media_credit'][0];
+	else
+		return;
 }
 function get_hrld_media_credit_user($id){
 	$hrld_credit = get_post_custom($id);
@@ -195,25 +200,22 @@ function hrld_auto_complete_js(){
 		'my_nonce' => wp_create_nonce('hrld_media_nonce')
 	);
 	wp_enqueue_script('jquery-ui-autocomplete');
-	wp_enqueue_script('hrld_media_credit_js', plugins_url().'/hrld-media-credit/hrld_media_credit_js.js', array('jquery','jquery-ui-autocomplete'));
+	wp_enqueue_script('hrld_media_credit_js', plugin_dir_url( __FILE__ ) . '/hrld_media_credit_js.js', array('jquery','jquery-ui-autocomplete'));
+	wp_enqueue_style('hrld-media-credit_css', plugin_dir_url( __FILE__ ) . '/hrld-media-credit_css.css');
 	wp_localize_script('hrld_media_credit_js','hrld_media_data', $hrld_ajax_data);
-	echo '<script type="text/javascript">var hrld_user_tags = [';
+
+	$hrld_user_tags = array();
 	$users_exclude = get_users(array('order'=>'ASC', 'orderby'=>'login', 'role'=>'subscriber'));
 	$exclude = array();
 	foreach($users_exclude as $user_exclude){
 		$exclude[] = $user_exclude->ID;
 	}
+
 	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login', 'exclude'=>$exclude));
 	foreach($hrld_users as $hrld_user){
-		if($hrld_user === end($hrld_users)){
-			echo '{label:"'.$hrld_user->display_name.'",value:"'.$hrld_user->user_login.'"}';
-		}
-		else{
-			echo '{label:"'.$hrld_user->display_name.'",value:"'.$hrld_user->user_login.'"},';
-		}
-	}
-	echo '];</script>';
-	echo '<style type="text/css">.ui-front{z-index:1600000 !important;}</style>';
+		$hrld_user_tags[] = array('label'=> ($hrld_user->display_name), 'value'=>($hrld_user->user_login));
+	}	
+	wp_localize_script('hrld_media_credit_js', 'hrld_user_tags', $hrld_user_tags);
 } 
 add_action('admin_head', 'hrld_auto_complete_js', 20);
 
