@@ -9,10 +9,10 @@ jQuery("body").on("keydown", ".hrld_media_credit_input", function(){
 		source: hrld_user_tags,
 		select: function (event, ui) {
 			var hrld_data = {
-				action: "hrld_save_credit_ajax",
-				hrld_credit: ui.item.value,
-				hrld_my_nonce: hrld_media_data.my_nonce,
-				hrld_id: hrld_media_input_id
+				action: "hrld_media_credit_ajax_save",
+				hrld_media_credit: ui.item.value,
+				hrld_media_credit_ajax_nonce: hrld_media_credit_data.hrld_media_credit_ajax_nonce,
+				hrld_media_credit_attachment_id: hrld_media_input_id
 			}
 			console.log(hrld_media_input);
 			hrld_media_input.attr("value", ui.item.value);

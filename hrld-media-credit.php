@@ -2,8 +2,9 @@
 /**
  * Plugin Name: Herald Media Credit
  * Description: Adds credit field to uploaded media.
- * Version: 1.0
+ * Version: 1.1
  * Author: Matthew Neil for The Badger Herald
+ * Revision: Jason Chan
  * License: GPL2
  */
  
@@ -14,22 +15,25 @@
  * @param $post object, attachment record in database
  * @return $form_fields, modified form fields
  */
-function hrld_attachment_field_credit( $form_fields, $post ) {
-	 $value = get_post_meta( $post->ID, '_hrld_media_credit', true );
-	 $form_fields['hrld_media_credit']['label'] = 'Media Credit';
-	 $form_fields['hrld_media_credit']['input'] = 'html';
-	 if ( current_user_can('edit_post', $post->ID)) {
-	 	$form_fields['hrld_media_credit']['html'] = '<input type="text" class="text hrld_media_credit_input" id="attachments-'.$post->ID.'-hrld_media_credit" name="attachments['.$post->ID.'][hrld_media_credit]" value="'.$value.'">';
-	 } else {
-	 	$form_fields['hrld_media_credit']['html'] = '<input type="text" class="text hrld_media_credit_input" id="attachments-'.$post->ID.'-hrld_media_credit" name="attachments['.$post->ID.'][hrld_media_credit]" value="'.$value.'" disabled>';
-	 }
-	 
-	 $form_fields['hrld_media_credit']['helps'] = 'If photo was taken by a Herald photographer, type their name and select from the dropdown. If the photo is from an outside source, type the credit in the format of name/organization. e.g. "Jeff Miller/UW Communications"';
+function hrld_media_credit_add_attachment_field( $form_fields, $post ) {
+
+	//retrieve possible post_meta, _hrld_media_credit
+	$post_media_credit_user = get_post_meta( $post->ID, '_hrld_media_credit', true );
+
+	//add `hrld_media_credit` to $form_fields for wp to display.
+	$form_fields['hrld_media_credit']['label'] = 'Media Credit';
+	$form_fields['hrld_media_credit']['input'] = 'html';
+	$form_fields['hrld_media_credit']['html']  = '<input type="text" class="text hrld_media_credit_input" id="attachments-'.$post->ID;
+	$form_fields['hrld_media_credit']['html'] .= '-hrld_media_credit" name="attachments['.$post->ID.'][hrld_media_credit]" value="'.$post_media_credit_user;
+	$form_fields['hrld_media_credit']['html'] .= current_user_can('edit_post', $post->ID) ? '">' : '" disabled>' ;
+	$form_fields['hrld_media_credit']['helps'] = 'If photo was taken by a Herald photographer, type their name and select from the dropdown. If the photo is from an outside source, type the credit in the format of name/organization. e.g. "Jeff Miller/UW Communications"';
 
 	return $form_fields;
 }
 
-add_filter( 'attachment_fields_to_edit', 'hrld_attachment_field_credit', 10, 2 );
+add_filter( 'attachment_fields_to_edit', 'hrld_media_credit_add_attachment_field', 10, 2 );
+
+
 
 /**
  * Save values of Herald Media Credit in media uploader
@@ -40,7 +44,7 @@ add_filter( 'attachment_fields_to_edit', 'hrld_attachment_field_credit', 10, 2 )
  */
 
 function hrld_attachment_field_credit_save( $post, $attachment ) {
-	if( isset( $attachment['hrld_media_credit'] ) && current_user_can('edit_post', $post['ID']))
+	if( isset( $attachment['hrld_media_credit'] ) && current_user_can( 'edit_post', $post['ID']))
 		update_post_meta( $post['ID'], '_hrld_media_credit', $attachment['hrld_media_credit'] );
 
 	return $post;
@@ -51,60 +55,78 @@ add_filter( 'attachment_fields_to_save', 'hrld_attachment_field_credit_save', 10
 /**
  * Save values of Author Name and URL in media uploader modal via AJAX
  */
-function admin_attachment_field_media_author_credit_ajax_save() {
+function hrld_media_credit_attachment_field_ajax_save() {
 
-	check_ajax_referer( 'hrld_media_nonce', 'hrld_my_nonce' );
+	check_ajax_referer( 'hrld_media_credit_ajax_nonce', 'hrld_media_credit_ajax_nonce' );
 
-    if( isset( $_POST['hrld_credit'] ) && current_user_can('edit_post', $post->ID)){
-    	//echo $_POST['hrld_credit'];
-        update_post_meta( $_POST['hrld_id'], '_hrld_media_credit', $_POST['hrld_credit'] );
-        //die();
+    if( isset( $_POST['hrld_media_credit'] ) ){
+        update_post_meta( $_POST['hrld_media_credit_attachment_id'], '_hrld_media_credit', $_POST['hrld_media_credit'] );
     }
-    die();
 
-} add_action('wp_ajax_hrld_save_credit_ajax', 'admin_attachment_field_media_author_credit_ajax_save', 0, 1); 
+} add_action('wp_ajax_hrld_media_credit_ajax_save', 'hrld_media_credit_attachment_field_ajax_save', 0, 1); 
 
 /**
  * Adds the credit byline to images added into post through "Add Media" button.
  *
  */
  
-function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $url, $size){
-		$html = get_image_tag($id, '', $title, $align, $size);
-		$hrld_credit = get_hrld_media_credit($id);
-		if(isset($hrld_credit) && !empty($hrld_credit)){
-			if(get_user_by('login', $hrld_credit)){
-				$hrld_user = get_user_by('login', $hrld_credit);
-				$html_text = '<span class="hrld-media-credit"><span class="hrld-media-credit-name"><a><a href="'.get_bloginfo('url').'/author/'.$hrld_credit.'">'.$hrld_user->display_name.'</a></a></span><span class="hrld-media-credit-org">/The Badger Herald</span></span>'; 
-			} else{
-				$hrld_credit_name_org = explode("/", $hrld_credit);
-				if($hrld_credit_name_org[1]){
-					$html_text = '<span class="hrld-media-credit"><span class="hrld-media-credit-name">'.$hrld_credit_name_org[0].'</span><span class="hrld-media-credit-org">/'.$hrld_credit_name_org[1].'</span></span>';
+function hrld_media_credit_to_post_editor($html, $id, $caption, $title, $align, $url, $size){
+
+		//the image tag from wp.
+		$html_img = get_image_tag($id, '', $title, $align, $size);
+
+		// for the credit html
+		$html_credit = '';
+
+		// if the media has the meta `_hrld_media_credit` set, 
+		if( $hrld_media_credit = get_hrld_media_credit( $id)){
+			
+			//now start the credit html
+			$html_credit  = '<span class="hrld-media-credit"><span class="hrld-media-credit-name">';
+			
+			$hrld_media_credit_user = get_hrld_media_credit_user( $id);
+			//is a wp_user
+			if( is_object( $hrld_media_credit_user)){
+				$html_credit .= '<a><a href="' . get_author_posts_url($hrld_media_credit_user->ID) . '">';		// img_caption_shortcode() sanitizes html entities
+				$html_credit .= $hrld_media_credit_user->display_name;
+				$html_credit .= '</a></a></span><span class="hrld-media-credit-org">/The Badger Herald</span>';
+			} else{	//is a guest contributor
+				$hrld_media_credit_guest = explode("/", $hrld_media_credit);	// 0->name, 1->org, see if the guest's associated org is provided.
+				if( sizeof($hrld_media_credit_guest) == 2){
+					$html_credit .= $hrld_media_credit_guest[0].'</span><span class="hrld-media-credit-org">/'.$hrld_media_credit_guest[1];
 				}
 				else{
-					$html_text = '<span class="hrld-media-credit"><span class="hrld-media-credit-org">'.$hrld_credit_name_org[0].'</span></span>';
+					$html_credit .= $hrld_media_credit_guest[0];
 				}
 			}
-			if($caption){
-				$html = get_image_tag($id, '', $title, $align, $size);
+		
+
+			// end credit html
+			$html_credit .= '</span></span>';
+
+			// if there is a caption passed in.
+			if( $caption){
+				$html  = $html_img;
 				$html .= $caption;
 				$html .= '<br />';
-				$html .= $html_text;
+				$html .= $html_credit;
 			} else{
-				$attach_attributes = wp_get_attachment_image_src($id, $isze);
-				$html = '[caption id="attachment_'.$id.'" align="'.$align.'" width="'.$attach_attributes[1].'"]';
-				$html .= get_image_tag($id, '', $title, $align, $size);
-				$html .= $html_text;
+				$attachment_attributes = wp_get_attachment_image_src($id, $size);	//[0] url, [1] width, [2] height, and [3] scale/aspect ratio 
+				$html  = '[caption id="attachment_'.$id.'" align="'.$align.'" width="'.$attachment_attributes[1].'"]';
+				$html .= $html_img;
+				$html .= $html_credit;
 				$html .= '[/caption]';
 			}
-		}
+		}else
+			return $html_img;
+
 	return  $html;
 }
-add_filter( 'image_send_to_editor', 'hrld_media_credit_send_editor', 10, 7 );
+add_filter( 'image_send_to_editor', 'hrld_media_credit_to_post_editor', 10, 7 );
 
 /**
  * Removes Default image_add_caption filter and adds slightly
- * editied version for hrld_add_caption. 
+ * editied version for hrld_media_credit_add_caption. 
  * Adds image shortcode with caption to editor
  *
  * @since 2.6.0
@@ -123,7 +145,8 @@ function hrld_remove_filters(){
 	remove_filter('image_send_to_editor', 'image_add_caption', 20, 8);
 }
 add_action('admin_init', 'hrld_remove_filters');
-function hrld_add_caption( $html, $id, $caption, $title, $align, $url, $size, $alt = '' ) {
+
+function hrld_media_credit_add_caption( $html, $id, $caption, $title, $align, $url, $size, $alt = '' ) {
 
 	/**
 	 * Filter whether to disable captions.
@@ -138,7 +161,7 @@ function hrld_add_caption( $html, $id, $caption, $title, $align, $url, $size, $a
 	if ( empty($caption) || apply_filters( 'disable_captions', '' ) )
 		return $html;
 
-	$hrld_credit = get_hrld_media_credit($id);
+	$hrld_media_credit = get_hrld_media_credit( $id);
 
 	$id = ( 0 < (int) $id ) ? 'attachment_' . $id : '';
 
@@ -159,7 +182,7 @@ function hrld_add_caption( $html, $id, $caption, $title, $align, $url, $size, $a
 
 	
 
-	if(isset($hrld_credit) && !empty($hrld_credit)){
+	if( $hrld_media_credit){
 		$shcode = '[caption id="' . $id . '" align="align' . $align	. '" width="' . $width . '"]' . $html . '[/caption]';
 	} else{
 		$shcode = '[caption id="' . $id . '" align="align' . $align	. '" width="' . $width . '"]' . $html . ' ' . $caption . '[/caption]';
@@ -174,7 +197,7 @@ function hrld_add_caption( $html, $id, $caption, $title, $align, $url, $size, $a
 	 */
 	return apply_filters( 'image_add_caption_shortcode', $shcode, $html );
 }
-add_filter('image_send_to_editor', 'hrld_add_caption', 20, 8);
+add_filter('image_send_to_editor', 'hrld_media_credit_add_caption', 20, 8);
 
 function hrld_cleanup_image_add_caption( $matches ) {
 	// remove any line breaks from inside the tags
@@ -182,27 +205,29 @@ function hrld_cleanup_image_add_caption( $matches ) {
 }
 
 function get_hrld_media_credit($id){
-	$hrld_credit = get_post_custom($id);
-	if( isset($hrld_credit['_hrld_media_credit']))
-		return $hrld_credit['_hrld_media_credit'][0];
-	else
-		return;
+
+	$hrld_media_credit = get_post_custom($id);
+	if( isset($hrld_media_credit['_hrld_media_credit']))
+		return $hrld_media_credit['_hrld_media_credit'][0];
+	return;
 }
 function get_hrld_media_credit_user($id){
-	$hrld_credit = get_post_custom($id);
-	return get_user_by('login', $hrld_credit['_hrld_media_credit'][0]);
+
+	if( $hrld_media_credit_user = get_user_by('login', get_hrld_media_credit( $id)))
+		return $hrld_media_credit_user;
+	return ;
 }
 /**
  * Adds script to footer with wp_footer hook
  */
 function hrld_auto_complete_js(){
-	$hrld_ajax_data = array(
-		'my_nonce' => wp_create_nonce('hrld_media_nonce')
+	$ajax_data = array(
+		'hrld_media_credit_ajax_nonce' => wp_create_nonce('hrld_media_credit_ajax_nonce')
 	);
 	wp_enqueue_script('jquery-ui-autocomplete');
 	wp_enqueue_script('hrld_media_credit_js', plugin_dir_url( __FILE__ ) . '/hrld_media_credit_js.js', array('jquery','jquery-ui-autocomplete'));
 	wp_enqueue_style('hrld-media-credit_css', plugin_dir_url( __FILE__ ) . '/hrld-media-credit_css.css');
-	wp_localize_script('hrld_media_credit_js','hrld_media_data', $hrld_ajax_data);
+	wp_localize_script('hrld_media_credit_js','hrld_media_credit_data', $ajax_data);
 
 	$hrld_user_tags = array();
 	$users_exclude = get_users(array('order'=>'ASC', 'orderby'=>'login', 'role'=>'subscriber'));
@@ -254,6 +279,13 @@ function hrld_remove_old_media_credit($content){
 }
 add_filter('the_content', 'hrld_remove_old_media_credit',10);
 
+/**
+ *
+ * TODO: this doesn't look like it belongs here. Looks like something for the author page?
+ *	
+ *
+ *
+*/
 function hrld_media_credit_query_ajax() {
 	$user_nicename = $_POST['user_nicename'];
 	$posts_per = $_POST['posts_per'];
@@ -269,14 +301,12 @@ function hrld_media_credit_query_ajax() {
 
     $attachments = get_posts($args);
     $response = array();
-    if ($attachments) {
-    	$index = 0;
-    	foreach ($attachments as $attachment) {
+    if ( $attachments) {
+    	foreach ($attachments as $index => $attachment) {
     		$response[$index] = array(
     			'ID' => $attachment->ID,
     			'tag' => wp_get_attachment_image($attachment->ID, 'square',false, array('class'=>'wp-image-'.$attachment->ID))
     		);
-    		$index++;
     	}
     }
 
