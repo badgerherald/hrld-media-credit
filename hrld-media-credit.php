@@ -40,6 +40,7 @@ add_filter( 'attachment_fields_to_edit', 'hrld_attachment_field_credit', 10, 2 )
  */
 
 function hrld_attachment_field_credit_save( $post, $attachment ) {
+
 	if( isset( $attachment['hrld_media_credit'] ) )
 		update_post_meta( $post['ID'], '_hrld_media_credit', $attachment['hrld_media_credit'] );
 
@@ -66,7 +67,6 @@ function admin_attachment_field_media_author_credit_ajax_save() {
  * Adds the credit byline to images added into post through "Add Media" button.
  *
  */
- 
 function hrld_media_credit_send_editor($html, $id, $caption, $title, $align, $url, $size){
 		$html = get_image_tag($id, '', $title, $align, $size);
 		$hrld_credit = get_hrld_media_credit($id);
@@ -121,6 +121,7 @@ function hrld_remove_filters(){
 	remove_filter('image_send_to_editor', 'image_add_caption', 20, 8);
 }
 add_action('admin_init', 'hrld_remove_filters');
+
 function hrld_add_caption( $html, $id, $caption, $title, $align, $url, $size, $alt = '' ) {
 
 	/**
@@ -179,14 +180,25 @@ function hrld_cleanup_image_add_caption( $matches ) {
 	return preg_replace( '/[\r\n\t]+/', ' ', $matches[0] );
 }
 
-function get_hrld_media_credit($id){
-	$hrld_credit = get_post_custom($id);
-	return $hrld_credit['_hrld_media_credit'][0];
+/**
+ * Returns the username for given image.
+ */
+function get_hrld_media_credit($imgid){
+	$hrld_credit = get_post_custom($imgid);
+	return isset($hrld_credit['_hrld_media_credit'][0]) ? $hrld_credit['_hrld_media_credit'][0] : "";
 }
-function get_hrld_media_credit_user($id){
-	$hrld_credit = get_post_custom($id);
-	return get_user_by('login', $hrld_credit['_hrld_media_credit'][0]);
+
+/**
+ * Returns the user id for given image.
+ */
+function get_hrld_media_credit_user($imgid){
+	$hrld_credit = get_post_custom($imgid);
+	if (isset($hrld_credit['_hrld_media_credit'][0]))
+		return get_user_by('login', $hrld_credit['_hrld_media_credit'][0]);
+	else
+		return;
 }
+
 /**
  * Adds script to footer with wp_footer hook
  */
