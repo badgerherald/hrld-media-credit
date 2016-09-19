@@ -209,24 +209,15 @@ function hrld_auto_complete_js(){
 	wp_enqueue_script('jquery-ui-autocomplete');
 	wp_enqueue_script('hrld_media_credit_js', plugins_url().'/hrld-media-credit/hrld_media_credit_js.js', array('jquery','jquery-ui-autocomplete'));
 	wp_localize_script('hrld_media_credit_js','hrld_media_data', $hrld_ajax_data);
-	echo '<script type="text/javascript">var hrld_user_tags = [';
-	$users_exclude = get_users(array('order'=>'ASC', 'orderby'=>'login', 'role'=>'subscriber'));
-	$exclude = array();
-	foreach($users_exclude as $user_exclude){
-		$exclude[] = $user_exclude->ID;
+	
+	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login', 'role__not_in'=>'subscriber'));
+	$hrld_user_tags = array();
+	foreach( $hrld_users as $hrld_user){
+		$hrld_user_tags[]  = array( 'label'=>$hrld_user->display_name, 'value'=>$hrld_user->user_login);
 	}
-	$hrld_users = get_users(array('order'=>'ASC', 'orderby'=>'login', 'exclude'=>$exclude));
-	foreach($hrld_users as $hrld_user){
-		if($hrld_user === end($hrld_users)){
-			echo '{label:"'.$hrld_user->display_name.'",value:"'.$hrld_user->user_login.'"}';
-		}
-		else{
-			echo '{label:"'.$hrld_user->display_name.'",value:"'.$hrld_user->user_login.'"},';
-		}
-	}
-	echo '];</script>';
+	wp_localize_script( 'hrld_media_credit_js', 'hrld_user_tags', $hrld_user_tags);
 	echo '<style type="text/css">.ui-front{z-index:1600000 !important;}</style>';
-} 
+}
 add_action('admin_head', 'hrld_auto_complete_js', 20);
 
 function hrld_remove_old_media_credit($content){
